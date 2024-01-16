@@ -18,10 +18,15 @@ The Basic Tag Library is a C library designed for managing and manipulating vari
 - BasicValue (Struct): Combines value with datatype and timestamp information to allow all datatypes to have the same structure.
 - FunctionalBasicTag (Struct): Represents a tag, storing its various attributes like name, data type, value, compare function, etc.
 - FunctionalBasicTagNode (Struct): Under the hood Node struct for creating the linked list of FunctionalBasicTag.
-### Functions
+## Functions
 - Tag Creation Functions: Functions to create tags for different data types (e.g., createInt8Tag, createStringTag). They are shorthand for calling the createTag function and all return a newly allocated pointer to a FunctionalBasicTag struct. Also handles adding to the linked list.
 - deleteTag Function: Deletes a tag, handling deallocation and removal from the linked list.
 - DefaultCompareFn Function: A default comparison function that checks basic equality when reading tags.
 - readBasicTag and writeBasicTag Functions: Read and write operations for basic tags with NULL pointer checks to prevent memory leaks. writeBasicTag also checks if either of the 2 writable flags of the tag are set before writing. 
 - getTagsCount Function: Returns the count of the current number of tags.
 - iterTags Function: Iterates over tags and applies a user supplied function to each FunctionalBasicTag instance.
+## API Reference
+### createTag
+`FunctionalBasicTag* createTag(const char* name, void* value_address, int alias, SparkplugDataType datatype, bool local_writable, bool remote_writable, size_t buffer_value_max_len);`
+
+### deleteTag

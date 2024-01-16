@@ -31,13 +31,13 @@ createTag is the base function for creating new tags. It creates a tag based on 
 ```c
 FunctionalBasicTag* createTag(const char* name, void* value_address, int alias, SparkplugDataType datatype, bool local_writable, bool remote_writable, size_t buffer_value_max_len);
 ```
-There are also helpful shorthand functions for creating each type:
+There are also helpful shorthand functions for creating each type of tag:
 ```c
 /* String & Buffer Types */
 FunctionalBasicTag* createStringTag(const char* name, char* value_address, int alias, bool local_writable, bool remote_writable, size_t string_max_len);
 FunctionalBasicTag* createTextTag(const char* name, char* value_address, int alias, bool local_writable, bool remote_writable, size_t string_max_len);
 FunctionalBasicTag* createUUIDTag(const char* name, char* value_address, int alias, bool local_writable, bool remote_writable);
-FunctionalBasicTag* createBytesTag(const char* name, BufferValue* value_address, int alias, bool local_writable, bool remote_writable, size_t buffer_value_max_len);
+FunctionalBasicTag* createBytesTag(const char* name, BufferValue* value_address, int alias, bool local_writable, bool remote_writable, size_t );
 
 /* Int Types */
 FunctionalBasicTag* createInt8Tag(const char* name, int8_t* value_address, int alias, bool local_writable, bool remote_writable);
@@ -57,8 +57,18 @@ FunctionalBasicTag* createDoubleTag(const char* name, double* value_address, int
 /* Bool Type */
 FunctionalBasicTag* createBoolTag(const char* name, bool* value_address, int alias, bool local_writable, bool remote_writable);
 ```
+#### Arguments:
+- **name**: the const char* string of the name that the tag will have
+- **value_address**: This is the pointer to the value that the tag will read from. When using createTag it is a void* pointer, otherwise it matches its function *eg. createFloatTag expects a float* pointer*. The value_address must be allocated for *at least* the lifetime of the tag to prevent memory issues.
+- **alias**: The unique integer value identifier for the tag. This should be unique across all tags, although it is not yet enforced.
+- **local_writeable**: Boolean value to indicate if the tag should be considered writable locally (within the program) or not.
+- **remote_writeable**: Boolean value to indicate if the tag should be considered writable remotely (ie, via some external source, internet, etc) or not.
+- **buffer_value_max_len**: a size_t integer to indicate the max length, if the datatype is a buffer or string value. For strings it is exlusive of the null ('\0') terminator, the underlying functions will allocate buffer_value_max_len + 1 to help ensure string safety. It should also not be larger than the allocated length of the value_address + 1 to account for the the null ('\0') terminator.
 
 ### deleteTag
+Handles deletion of a tag, deallocates any allocations done by the createTag function and removes it from the linked list of tags.
 ```c
-
+bool deleteTag(FunctionalBasicTag* tag);
 ```
+#### Arguments:
+- tag: The pointer of the tag (FunctionalBasicTag instance) that you want to delete.

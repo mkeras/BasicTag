@@ -27,6 +27,6 @@ The Basic Tag Library is a C library designed for managing and manipulating vari
 - iterTags Function: Iterates over tags and applies a user supplied function to each FunctionalBasicTag instance.
 ## API Reference
 ### createTag
-```C FunctionalBasicTag* createTag(const char* name, void* value_address, int alias, SparkplugDataType datatype, bool local_writable, bool remote_writable, size_t buffer_value_max_len);```
+```c FunctionalBasicTag* createTag(const char* name, void* value_address, int alias, SparkplugDataType datatype, bool local_writable, bool remote_writable, size_t buffer_value_max_len);```
 
 ### deleteTag

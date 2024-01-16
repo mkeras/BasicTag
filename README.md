@@ -74,4 +74,13 @@ bool deleteTag(FunctionalBasicTag* tag);
 - tag: The pointer of the tag (FunctionalBasicTag instance) that you want to delete.
 
 ## readBasicTag:
-Reads a tag. User must supply a tag pointer and a uint64_t millisecond timestamp.
+Reads a tag. User must supply a tag pointer and a uint64_t millisecond timestamp. Return value indicates if tag value has changed or not. If the compareFn of the tag is set, it is the return value of that.
+```c
+bool readBasicTag(FunctionalBasicTag* tag, uint64_t timestamp);
+```
+### Arguments:
+- tag: The FunctionalBasicTag* pointer of the tag to read.
+- timestamp: The uint64_t value of the millisecond epoch timestamp
+
+## writeBasicTag:
+Writes a value to a tag. Performs necessary NULL checks and then writes the value of the supplied BasicValue* newValue to the value_address of the tag.

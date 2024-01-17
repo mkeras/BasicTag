@@ -27,7 +27,9 @@ The Basic Tag Library is a C library designed for managing and manipulating vari
 - iterTags Function: Iterates over tags and applies a user supplied function to each FunctionalBasicTag instance.
 # API Reference
 ## Data Structures
-The following data structures are the basis of this library:
+The following data structures are the components of this library:
+
+This is the enum for datatypes, based off of the sparkplug 3.0 standard. The datatype is what lets the functions know which value type to use with the tags and values:
 ```c
 typedef enum {
   Int8 = 1,
@@ -49,14 +51,16 @@ typedef enum {
 } SparkplugDataType;
 ```
 
+The BufferValue struct is for using with bytes values. It stores the pointer to the allocated buffer, the allocated length of the buffer, and a written_length:
 ```c
 typedef struct {
   uint8_t* buffer;  // Pointer to an array of uint8_t
   size_t written_length;  // Length of the array
-  size_t allocated_length;
+  size_t allocated_length;  // allocated/max length
 } BufferValue;  // Size 12 bytes + length of buffer
 ```
 
+The Value union is the under the hood component for storing the different datatypes:
 ```c
 typedef union {
     int8_t int8Value;
@@ -76,8 +80,8 @@ typedef union {
 } Value; // Size is 8 bytes + value of string, if the value is a string, + 12 bytes Buffer Value + buffer size if it's a bytesValue
 ```
 
+The BasicValue is the base of a tag, it contains the datatype, value, timestamp, and a helpful isNull flag:
 ```c
-
 typedef struct {
     uint64_t timestamp;
     SparkplugDataType datatype;
@@ -86,10 +90,12 @@ typedef struct {
 } BasicValue; // Basic Value size is 32 bytes
 ```
 
+The CompareFunction type is used by the readBasicTag function to compare tag values when reading, return true if value should be considered changed, false if not. It's purpose is to enable any type of deadband processing on a tag:
 ```c
-typedef bool (*CompareFunction)(BasicValue* previousValue, BasicValue* newValue);  // Compare the values, return True if value should be considered changed False if not
+typedef bool (*CompareFunction)(BasicValue* previousValue, BasicValue* newValue);
 ```
 
+The FunctionalBasicTag is the 'tag'. It stores all the tag's information. The user should generally only be reading/checking a FunctionalBasicTags variables, and allow the api functions to handle the changing of any of it's values:
 ```c
 typedef struct {
   const char* name;
@@ -97,8 +103,8 @@ typedef struct {
   void* value_address;
   bool local_writable;
   bool remote_writable;
-  bool valueChanged;  // Set every time read is called
-  uint64_t lastRead;
+  bool valueChanged;  // Set every time read is called, the result of compareFunc
+  uint64_t lastRead;  // timestamp of when readBasicTag was last called on it
   size_t buffer_value_max_len;
   SparkplugDataType datatype;
   BasicValue currentValue;
@@ -107,12 +113,17 @@ typedef struct {
 } FunctionalBasicTag;  // Size is 104 bytes + bytes / char values
 ```
 
+The FunctionalBasicTagNode is the basic linked list structure. It should generally not be used manually by the user as the linked list is managed automatically by the api functions:
 ```c
 typedef struct {
   FunctionalBasicTag* tag_ptr;
   void* next_node;
-  // void* previous_node; TODO implement later
-} FunctionalBasicTagNode;  // Linked List Wrapper for FunctionalBasicTag
+} FunctionalBasicTagNode;  // Linked List Node Wrapper for FunctionalBasicTag
+```
+
+This function type is used by the iterTags function. It is simply a function that does something to a tag with no return value (void).
+```c
+typedef void (*TagFunction)(FunctionalBasicTag* tag);
 ```
 ## createTag
 createTag is the base function for creating new tags. It creates a tag based on the supplied arguments, and handles memory allocations and linked list backend. Returns a pointer to the newly created FunctionalBasicTag struct instance.

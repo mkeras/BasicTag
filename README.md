@@ -26,6 +26,94 @@ The Basic Tag Library is a C library designed for managing and manipulating vari
 - getTagsCount Function: Returns the count of the current number of tags.
 - iterTags Function: Iterates over tags and applies a user supplied function to each FunctionalBasicTag instance.
 # API Reference
+## Data Structures
+The following data structures are the basis of this library:
+```c
+typedef enum {
+  Int8 = 1,
+  Int16 = 2,
+  Int32 = 3,
+  Int64 = 4,
+  UInt8 = 5,
+  UInt16 = 6,
+  UInt32 = 7,
+  UInt64 = 8,
+  Float = 9,
+  Double = 10,
+  Boolean = 11,
+  String = 12,
+  DateTime = 13,  // uint64, epoch milliseconds
+  Text = 14,
+  UUID = 15,   // a string of 36 characters
+  Bytes = 17,
+} SparkplugDataType;
+```
+
+```c
+typedef struct {
+  uint8_t* buffer;  // Pointer to an array of uint8_t
+  size_t written_length;  // Length of the array
+  size_t allocated_length;
+} BufferValue;  // Size 12 bytes + length of buffer
+```
+
+```c
+typedef union {
+    int8_t int8Value;
+    int16_t int16Value;
+    int32_t int32Value;
+    int64_t int64Value;
+    uint8_t uint8Value;
+    uint16_t uint16Value;
+    uint32_t uint32Value;
+    uint64_t uint64Value;
+    float floatValue;
+    double doubleValue;
+    bool boolValue;
+    char* stringValue;
+    BufferValue* bytesValue;  // Use BufferValue struct for bytes data types
+    void* other; // Void pointer for use with other complex SparkplugDataTypes
+} Value; // Size is 8 bytes + value of string, if the value is a string, + 12 bytes Buffer Value + buffer size if it's a bytesValue
+```
+
+```c
+
+typedef struct {
+    uint64_t timestamp;
+    SparkplugDataType datatype;
+    Value value;
+    bool isNull;
+} BasicValue; // Basic Value size is 32 bytes
+```
+
+```c
+typedef bool (*CompareFunction)(BasicValue* previousValue, BasicValue* newValue);  // Compare the values, return True if value should be considered changed False if not
+```
+
+```c
+typedef struct {
+  const char* name;
+  int alias;
+  void* value_address;
+  bool local_writable;
+  bool remote_writable;
+  bool valueChanged;  // Set every time read is called
+  uint64_t lastRead;
+  size_t buffer_value_max_len;
+  SparkplugDataType datatype;
+  BasicValue currentValue;
+  BasicValue previousValue;
+  CompareFunction compareFunc;
+} FunctionalBasicTag;  // Size is 104 bytes + bytes / char values
+```
+
+```c
+typedef struct {
+  FunctionalBasicTag* tag_ptr;
+  void* next_node;
+  // void* previous_node; TODO implement later
+} FunctionalBasicTagNode;  // Linked List Wrapper for FunctionalBasicTag
+```
 ## createTag
 createTag is the base function for creating new tags. It creates a tag based on the supplied arguments, and handles memory allocations and linked list backend. Returns a pointer to the newly created FunctionalBasicTag struct instance.
 ```c
@@ -84,3 +172,9 @@ bool readBasicTag(FunctionalBasicTag* tag, uint64_t timestamp);
 
 ## writeBasicTag:
 Writes a value to a tag. Performs necessary NULL checks and then writes the value of the supplied BasicValue* newValue to the value_address of the tag.
+```c
+bool writeBasicTag(FunctionalBasicTag* tag, BasicValue* newValue);
+```
+### Arguments:
+- tag: The FunctionalBasicTag* pointer of the tag to write to.
+- newValue: A pointer to a BasicValue struct that has it's value union set according to the datatype of the tag it is to be written to. Currently (1.0.0) doesn't use the timestamp, isNull or datatype of the newValue, so they don't need to be set when making a BasicValue to use with this function.

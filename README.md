@@ -92,6 +92,11 @@ bool writeBasicTag(FunctionalBasicTag* tag, BasicValue* newValue);
 - tag: The FunctionalBasicTag* pointer of the tag to write to.
 - newValue: A pointer to a BasicValue struct that has it's value union set according to the datatype of the tag it is to be written to. Currently (1.0.0) doesn't use the timestamp, isNull or datatype of the newValue, so they don't need to be set when making a BasicValue to use with this function.
 
+## getTagsCount
+Returns the number of tags currently configured.
+```c
+unsigned int getTagsCount();
+```
 
 # Data Structures
 

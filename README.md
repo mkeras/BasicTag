@@ -1,5 +1,5 @@
 # BasicTag
- Basic tag abstraction written in C. Designed to be used in other libraries for more complex tag functionality (eg. I will use this for implementing sparkplug B/sparkplug 3 edge node). Purpose is to form a base for organizing and monitoring variables, detecting changes and writing new values.
+ Basic tag abstraction written in C. Designed to be used as a building block for other libraries to enable IOT/IIOT functionality (eg. I will use this for implementing sparkplug B/sparkplug 3 edge node). Purpose is to form a base for organizing and monitoring variables, detecting changes and writing new values.
 
 # Overview
 The Basic Tag Library is a C library designed for managing and manipulating various data types within a structured system. It provides a comprehensive suite of functions and data structures to handle a wide range of data types, including basic types (like integers and floats), complex types (like strings and byte arrays), and specialized types (like UUIDs and DateTime). The SparkplugDataType Enum is a direct copy from the Sparkplug 3.0 specification. More complex datatypes like arrays, PropertySet, and Template have not been implemented yet. It is undecided as of yet whether it is necessary to implement these more complex datatypes, as in a microcontroller environment that this library is designed for, they are generally not neccessary.

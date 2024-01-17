@@ -26,8 +26,74 @@ The Basic Tag Library is a C library designed for managing and manipulating vari
 - getTagsCount Function: Returns the count of the current number of tags.
 - iterTags Function: Iterates over tags and applies a user supplied function to each FunctionalBasicTag instance.
 # API Reference
-## Data Structures
-The following data structures are the components of this library:
+
+## createTag
+createTag is the base function for creating new tags. It creates a tag based on the supplied arguments, and handles memory allocations and linked list backend. Returns a pointer to the newly created FunctionalBasicTag struct instance.
+```c
+FunctionalBasicTag* createTag(const char* name, void* value_address, int alias, SparkplugDataType datatype, bool local_writable, bool remote_writable, size_t buffer_value_max_len);
+```
+There are also helpful shorthand functions for creating each type of tag:
+```c
+/* String & Buffer Types */
+FunctionalBasicTag* createStringTag(const char* name, char* value_address, int alias, bool local_writable, bool remote_writable, size_t string_max_len);
+FunctionalBasicTag* createTextTag(const char* name, char* value_address, int alias, bool local_writable, bool remote_writable, size_t string_max_len);
+FunctionalBasicTag* createUUIDTag(const char* name, char* value_address, int alias, bool local_writable, bool remote_writable);
+FunctionalBasicTag* createBytesTag(const char* name, BufferValue* value_address, int alias, bool local_writable, bool remote_writable, size_t );
+
+/* Int Types */
+FunctionalBasicTag* createInt8Tag(const char* name, int8_t* value_address, int alias, bool local_writable, bool remote_writable);
+FunctionalBasicTag* createInt16Tag(const char* name, int16_t* value_address, int alias, bool local_writable, bool remote_writable);
+FunctionalBasicTag* createInt32Tag(const char* name, int32_t* value_address, int alias, bool local_writable, bool remote_writable);
+FunctionalBasicTag* createInt64Tag(const char* name, int64_t* value_address, int alias, bool local_writable, bool remote_writable);
+FunctionalBasicTag* createUInt8Tag(const char* name, uint8_t* value_address, int alias, bool local_writable, bool remote_writable);
+FunctionalBasicTag* createUInt16Tag(const char* name, uint16_t* value_address, int alias, bool local_writable, bool remote_writable);
+FunctionalBasicTag* createUInt32Tag(const char* name, uint32_t* value_address, int alias, bool local_writable, bool remote_writable);
+FunctionalBasicTag* createUInt64Tag(const char* name, uint64_t* value_address, int alias, bool local_writable, bool remote_writable);
+FunctionalBasicTag* createDateTimeTag(const char* name, uint64_t* value_address, int alias, bool local_writable, bool remote_writable);
+
+/* Float Types */
+FunctionalBasicTag* createFloatTag(const char* name, float* value_address, int alias, bool local_writable, bool remote_writable);
+FunctionalBasicTag* createDoubleTag(const char* name, double* value_address, int alias, bool local_writable, bool remote_writable);
+
+/* Bool Type */
+FunctionalBasicTag* createBoolTag(const char* name, bool* value_address, int alias, bool local_writable, bool remote_writable);
+```
+### Arguments:
+- **name**: the const char* string of the name that the tag will have
+- **value_address**: This is the pointer to the value that the tag will read from. When using createTag it is a void* pointer, otherwise it matches its function *eg. createFloatTag expects a float* pointer*. The value_address must be allocated for *at least* the lifetime of the tag to prevent memory issues.
+- **alias**: The unique integer value identifier for the tag. This should be unique across all tags, although it is not yet enforced.
+- **local_writeable**: Boolean value to indicate if the tag should be considered writable locally (within the program) or not.
+- **remote_writeable**: Boolean value to indicate if the tag should be considered writable remotely (ie, via some external source, internet, etc) or not.
+- **buffer_value_max_len**: a size_t integer to indicate the max length, if the datatype is a buffer or string value. For strings it is exlusive of the null ('\0') terminator, the underlying functions will allocate buffer_value_max_len + 1 to help ensure string safety. It should also not be larger than the allocated length of the value_address + 1 to account for the the null ('\0') terminator.
+
+## deleteTag
+Handles deletion of a tag, deallocates any allocations done by the createTag function and removes it from the linked list of tags. Returns true on success, false if not.
+```c
+bool deleteTag(FunctionalBasicTag* tag);
+```
+### Arguments:
+- tag: The pointer of the tag (FunctionalBasicTag instance) that you want to delete.
+
+## readBasicTag:
+Reads a tag. User must supply a tag pointer and a uint64_t millisecond timestamp. Return value indicates if tag value has changed or not. If the compareFn of the tag is set, it is the return value of that.
+```c
+bool readBasicTag(FunctionalBasicTag* tag, uint64_t timestamp);
+```
+### Arguments:
+- tag: The FunctionalBasicTag* pointer of the tag to read.
+- timestamp: The uint64_t value of the millisecond epoch timestamp
+
+## writeBasicTag:
+Writes a value to a tag. Performs necessary NULL checks and then writes the value of the supplied BasicValue* newValue to the value_address of the tag.
+```c
+bool writeBasicTag(FunctionalBasicTag* tag, BasicValue* newValue);
+```
+### Arguments:
+- tag: The FunctionalBasicTag* pointer of the tag to write to.
+- newValue: A pointer to a BasicValue struct that has it's value union set according to the datatype of the tag it is to be written to. Currently (1.0.0) doesn't use the timestamp, isNull or datatype of the newValue, so they don't need to be set when making a BasicValue to use with this function.
+
+
+# Data Structures
 
 This is the enum for datatypes, based off of the sparkplug 3.0 standard. The datatype is what lets the functions know which value type to use with the tags and values:
 ```c
@@ -125,67 +191,3 @@ This function type is used by the iterTags function. It is simply a function tha
 ```c
 typedef void (*TagFunction)(FunctionalBasicTag* tag);
 ```
-## createTag
-createTag is the base function for creating new tags. It creates a tag based on the supplied arguments, and handles memory allocations and linked list backend. Returns a pointer to the newly created FunctionalBasicTag struct instance.
-```c
-FunctionalBasicTag* createTag(const char* name, void* value_address, int alias, SparkplugDataType datatype, bool local_writable, bool remote_writable, size_t buffer_value_max_len);
-```
-There are also helpful shorthand functions for creating each type of tag:
-```c
-/* String & Buffer Types */
-FunctionalBasicTag* createStringTag(const char* name, char* value_address, int alias, bool local_writable, bool remote_writable, size_t string_max_len);
-FunctionalBasicTag* createTextTag(const char* name, char* value_address, int alias, bool local_writable, bool remote_writable, size_t string_max_len);
-FunctionalBasicTag* createUUIDTag(const char* name, char* value_address, int alias, bool local_writable, bool remote_writable);
-FunctionalBasicTag* createBytesTag(const char* name, BufferValue* value_address, int alias, bool local_writable, bool remote_writable, size_t );
-
-/* Int Types */
-FunctionalBasicTag* createInt8Tag(const char* name, int8_t* value_address, int alias, bool local_writable, bool remote_writable);
-FunctionalBasicTag* createInt16Tag(const char* name, int16_t* value_address, int alias, bool local_writable, bool remote_writable);
-FunctionalBasicTag* createInt32Tag(const char* name, int32_t* value_address, int alias, bool local_writable, bool remote_writable);
-FunctionalBasicTag* createInt64Tag(const char* name, int64_t* value_address, int alias, bool local_writable, bool remote_writable);
-FunctionalBasicTag* createUInt8Tag(const char* name, uint8_t* value_address, int alias, bool local_writable, bool remote_writable);
-FunctionalBasicTag* createUInt16Tag(const char* name, uint16_t* value_address, int alias, bool local_writable, bool remote_writable);
-FunctionalBasicTag* createUInt32Tag(const char* name, uint32_t* value_address, int alias, bool local_writable, bool remote_writable);
-FunctionalBasicTag* createUInt64Tag(const char* name, uint64_t* value_address, int alias, bool local_writable, bool remote_writable);
-FunctionalBasicTag* createDateTimeTag(const char* name, uint64_t* value_address, int alias, bool local_writable, bool remote_writable);
-
-/* Float Types */
-FunctionalBasicTag* createFloatTag(const char* name, float* value_address, int alias, bool local_writable, bool remote_writable);
-FunctionalBasicTag* createDoubleTag(const char* name, double* value_address, int alias, bool local_writable, bool remote_writable);
-
-/* Bool Type */
-FunctionalBasicTag* createBoolTag(const char* name, bool* value_address, int alias, bool local_writable, bool remote_writable);
-```
-### Arguments:
-- **name**: the const char* string of the name that the tag will have
-- **value_address**: This is the pointer to the value that the tag will read from. When using createTag it is a void* pointer, otherwise it matches its function *eg. createFloatTag expects a float* pointer*. The value_address must be allocated for *at least* the lifetime of the tag to prevent memory issues.
-- **alias**: The unique integer value identifier for the tag. This should be unique across all tags, although it is not yet enforced.
-- **local_writeable**: Boolean value to indicate if the tag should be considered writable locally (within the program) or not.
-- **remote_writeable**: Boolean value to indicate if the tag should be considered writable remotely (ie, via some external source, internet, etc) or not.
-- **buffer_value_max_len**: a size_t integer to indicate the max length, if the datatype is a buffer or string value. For strings it is exlusive of the null ('\0') terminator, the underlying functions will allocate buffer_value_max_len + 1 to help ensure string safety. It should also not be larger than the allocated length of the value_address + 1 to account for the the null ('\0') terminator.
-
-## deleteTag
-Handles deletion of a tag, deallocates any allocations done by the createTag function and removes it from the linked list of tags. Returns true on success, false if not.
-```c
-bool deleteTag(FunctionalBasicTag* tag);
-```
-### Arguments:
-- tag: The pointer of the tag (FunctionalBasicTag instance) that you want to delete.
-
-## readBasicTag:
-Reads a tag. User must supply a tag pointer and a uint64_t millisecond timestamp. Return value indicates if tag value has changed or not. If the compareFn of the tag is set, it is the return value of that.
-```c
-bool readBasicTag(FunctionalBasicTag* tag, uint64_t timestamp);
-```
-### Arguments:
-- tag: The FunctionalBasicTag* pointer of the tag to read.
-- timestamp: The uint64_t value of the millisecond epoch timestamp
-
-## writeBasicTag:
-Writes a value to a tag. Performs necessary NULL checks and then writes the value of the supplied BasicValue* newValue to the value_address of the tag.
-```c
-bool writeBasicTag(FunctionalBasicTag* tag, BasicValue* newValue);
-```
-### Arguments:
-- tag: The FunctionalBasicTag* pointer of the tag to write to.
-- newValue: A pointer to a BasicValue struct that has it's value union set according to the datatype of the tag it is to be written to. Currently (1.0.0) doesn't use the timestamp, isNull or datatype of the newValue, so they don't need to be set when making a BasicValue to use with this function.

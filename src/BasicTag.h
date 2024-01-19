@@ -107,9 +107,11 @@ typedef struct {
     bool isNull;
 } BasicValue; // Basic Value size is 32 bytes
 
+typedef struct FunctionalBasicTag FunctionalBasicTag; // Forward declaration
 typedef bool (*CompareFunction)(BasicValue* previousValue, BasicValue* newValue);  // Compare the values, return True if value should be considered changed False if not
+typedef void (*onValueChangeFunction)(FunctionalBasicTag* tag);  // Optional function that can be registered for a tag that is triggered be read, when the value has changed. Called after tag values have been updated, before returning
 
-typedef struct {
+struct FunctionalBasicTag {
   const char* name;
   int alias;
   void* value_address;
@@ -122,7 +124,8 @@ typedef struct {
   BasicValue currentValue;
   BasicValue previousValue;
   CompareFunction compareFunc;
-} FunctionalBasicTag;  // Size is 104 bytes + bytes / char values
+  onValueChangeFunction onChange;
+};  // Size is 108? bytes + bytes / char values
 
 
 typedef struct {
@@ -177,6 +180,19 @@ typedef void (*TagFunction)(FunctionalBasicTag* tag);  // Function that is calle
 typedef uint64_t (*TimestampFunction)();  // Function that returns a uint64_t millisecond timestamp
 
 void iterTags(TagFunction tagFn);
+
+/*
+Version 1.1.0 Additions
+*/
+
+// When read is called
+bool addOnChangeCallback(FunctionalBasicTag* tag, onValueChangeFunction callbackFn);  // returns true when added succesfully
+
+typedef bool (*TagFindFunction)(FunctionalBasicTag* tag, void* arg); // Returns true if the tag matches a certain criterea set out in the function
+FunctionalBasicTag* findTag(TagFindFunction matcherFn, void* arg); // Returns pointer to first tag for which the matcherFn returns true, returns NULL of no match found
+
+bool aliasValid(int alias); // Iterate through tags, check if alias has already been used or not
+int getNextAlias(); // Iterate through tags, get the max alias and return max_alias + 1
 
 #ifdef __cplusplus
 }

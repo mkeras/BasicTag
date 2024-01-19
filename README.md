@@ -27,6 +27,28 @@ The Basic Tag Library is a C library designed for managing and manipulating vari
 - iterTags Function: Iterates over tags and applies a user supplied function to each FunctionalBasicTag instance.
 # API Reference
 
+## v1.1.0
+Function for adding onChange callback to a tag:
+```c
+bool addOnChangeCallback(FunctionalBasicTag* tag, onValueChangeFunction callbackFn);
+```
+
+Tag find/search functionality: Function typedef that is a bool returning function that determines if a tag matches some criteria. findTag iterates and checks the matcherFn until it returns true, then returns that tag's pointer, or it returns NULL when no match is found.
+```c
+typedef bool (*TagFindFunction)(FunctionalBasicTag* tag, void* arg); // Returns true if the tag matches a certain criteria set out in the function
+FunctionalBasicTag* findTag(TagFindFunction matcherFn, void* arg); // Returns pointer to first tag for which the matcherFn returns true, returns NULL of no match found
+```
+
+Two Helper functions for dealing with aliases have been added:
+aliasValid validates an alias, checking if alias has already been used or not.
+getNextAlias returns the max value of the current aliases plus 1.
+In a future release aliases might become fully handled under the hood.
+```c
+bool aliasValid(int alias); // 
+int getNextAlias(); // Iterate through tags, get the max alias and return max_alias + 1
+```
+
+## v1.0.0
 ## createTag
 createTag is the base function for creating new tags. It creates a tag based on the supplied arguments, and handles memory allocations and linked list backend. Returns a pointer to the newly created FunctionalBasicTag struct instance.
 ```c
@@ -168,7 +190,13 @@ typedef bool (*CompareFunction)(BasicValue* previousValue, BasicValue* newValue)
 
 The FunctionalBasicTag is the 'tag'. It stores all the tag's information. The user should generally only be reading/checking a FunctionalBasicTags variables, and allow the api functions to handle the changing of any of it's values:
 ```c
-typedef struct {
+typedef struct FunctionalBasicTag FunctionalBasicTag; // v1.1.0: Forward declaration
+```
+New Function type in v1.1.0: Optional function that can be registered for a tag that is triggered be read, when the value has changed. Called after tag values have been updated, before returning.
+```c
+typedef void (*onValueChangeFunction)(FunctionalBasicTag* tag);
+
+struct {
   const char* name;
   int alias;
   void* value_address;
@@ -181,7 +209,8 @@ typedef struct {
   BasicValue currentValue;
   BasicValue previousValue;
   CompareFunction compareFunc;
-} FunctionalBasicTag;  // Size is 104 bytes + bytes / char values
+  onValueChangeFunction onChange; // New in v1.1.0
+} FunctionalBasicTag;  // Size is 108 bytes + bytes / char values
 ```
 
 The FunctionalBasicTagNode is the basic linked list structure. It should generally not be used manually by the user as the linked list is managed automatically by the api functions:

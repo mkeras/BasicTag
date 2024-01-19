@@ -198,6 +198,8 @@ static bool _deallocate_buffer_value(Value* value) {
 static bool _init_functional_basic_tag(FunctionalBasicTag* tag, char* name, void* value_address, int alias, SparkplugDataType datatype, bool local_writable, bool remote_writable, size_t buffer_value_max_len) {
   if (tag == NULL) return false; // Safety check to ensure the tag pointer is not null
 
+  if (!aliasValid(alias)) alias = getNextAlias();  // If alias is not unique, make it so
+
   // Set the name, value_address, alias, and datatype
   tag->name = name;
   tag->value_address = value_address;
@@ -209,6 +211,7 @@ static bool _init_functional_basic_tag(FunctionalBasicTag* tag, char* name, void
   tag->compareFunc = DefaultCompareFn;
   tag->valueChanged = false;
   tag->lastRead = 0;
+  tag->onChange = NULL; // Must be set by addOnChangeCallback to keep backward compatibility
 
   // Initialize currentValue and previousValue
   tag->currentValue.timestamp = 0;
@@ -539,6 +542,8 @@ bool readBasicTag(FunctionalBasicTag* tag, uint64_t timestamp) {
   // Update the current and previous values only if the value is considered changed
   _copyBasicValue(&(tag->currentValue), &(tag->previousValue), tag->buffer_value_max_len);
   _copyBasicValue(&newValue, &(tag->currentValue), tag->buffer_value_max_len);
+
+  if (tag->onChange != NULL) tag->onChange(tag);
   return true;
 }
 
@@ -609,4 +614,48 @@ bool writeBasicTag(FunctionalBasicTag* tag, BasicValue* newValue) {
     }
 
   return true;
+}
+
+
+/*
+New Functions for Version 1.1.0
+*/
+
+bool addOnChangeCallback(FunctionalBasicTag* tag, onValueChangeFunction callbackFn) {
+  if (callbackFn == NULL || tag == NULL) return false;
+  tag->onChange = callbackFn;
+  return true;
+}
+
+
+// Linked list functionality
+
+FunctionalBasicTag* findTag(TagFindFunction matcherFn, void* arg) {
+  /* Returns the first tag found for which the mathcherFn returns true */
+  if (_head == NULL || matcherFn == NULL) return NULL;  // If there are no tags return right away
+  FunctionalBasicTagNode* current = _head;
+  while (current != NULL) {
+      if (matcherFn(current->tag_ptr, arg)) return current->tag_ptr;
+      current = current->next_node;
+  }
+  return NULL;
+}
+
+static bool _alias_valid(FunctionalBasicTag* tag, void* arg) {
+  return tag->alias == *(int*)arg;
+}
+
+bool aliasValid(int alias) {
+  return findTag(_alias_valid, (void*)&alias) == NULL;
+}
+
+int getNextAlias() {
+  if (_head == NULL) return 1;  // If there are no tags start aliases at 1
+  int max = 0;
+  FunctionalBasicTagNode* current = _head;
+  while (current != NULL) {
+      if (current->tag_ptr->alias > max) max = current->tag_ptr->alias;
+      current = current->next_node;
+  }
+  return max + 1;
 }

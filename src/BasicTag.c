@@ -61,13 +61,45 @@ bool DefaultCompareFn(BasicValue* currentValue, BasicValue* newValue) {
 Tag Linked List Functions
 Tag allocation deallocation handled elsewhere, these are designed to be called after a creation or deletion of tag
 */
-//static 
 
 static FunctionalBasicTagNode* _head = NULL;
 static unsigned int _NodeCount = 0;
+// v1.2.0 maintain array of tags for quick indexing
+static FunctionalBasicTag** _tags_array = NULL;
 
 unsigned int getTagsCount() {
     return _NodeCount;
+}
+
+// New addition in v1.2.0
+static bool _update_tags_array() {
+    if (_NodeCount == 0) {
+      if (_tags_array != NULL) free(_tags_array);
+      _tags_array = NULL;
+      return true;
+    }
+
+    // Allocate to the number of Nodes
+    if (_tags_array == NULL) {
+      // malloc
+      _tags_array = malloc(_NodeCount * sizeof(FunctionalBasicTag*));
+    } else {
+      // realloc
+      _tags_array = realloc(_tags_array, _NodeCount * sizeof(FunctionalBasicTag*));
+    }
+
+    // Check if memory operation failed
+    if (_tags_array == NULL) return false;
+
+    // Walk list and add addresses to _tags_array
+    FunctionalBasicTagNode* current = _head;
+    size_t count = _NodeCount - 1; // start at end and work backwards
+    while (current != NULL) {
+        _tags_array[count] = current->tag_ptr;
+        current = current->next_node;
+        count--;
+    }
+    return true;
 }
 
 static FunctionalBasicTagNode* _add_tag_to_list(FunctionalBasicTag* tag) {
@@ -84,6 +116,8 @@ static FunctionalBasicTagNode* _add_tag_to_list(FunctionalBasicTag* tag) {
 
     _head = new;
     _NodeCount += 1;
+    
+    _update_tags_array();
 
     return new;
 }
@@ -103,6 +137,7 @@ static bool _remove_tag_from_list(FunctionalBasicTag* tag) {
 
             free(current);
             _NodeCount -= 1;
+            _update_tags_array();
             return true;
         }
         prev = current;
@@ -641,12 +676,12 @@ FunctionalBasicTag* findTag(TagFindFunction matcherFn, void* arg) {
   return NULL;
 }
 
-static bool _alias_valid(FunctionalBasicTag* tag, void* arg) {
+static bool _tag_has_alias(FunctionalBasicTag* tag, void* arg) {
   return tag->alias == *(int*)arg;
 }
 
 bool aliasValid(int alias) {
-  return findTag(_alias_valid, (void*)&alias) == NULL;
+  return findTag(_tag_has_alias, (void*)&alias) == NULL;
 }
 
 int getNextAlias() {
@@ -658,4 +693,30 @@ int getNextAlias() {
       current = current->next_node;
   }
   return max + 1;
+}
+
+
+/*
+New Functions for Version 1.2.0
+*/
+
+static bool _tag_has_name(FunctionalBasicTag* tag, void* arg) {
+  const char* tagName = (char*)arg;
+  return strcmp(tag->name, tagName) == 0;
+}
+
+FunctionalBasicTag* getTagByName(const char* name) {
+  // Returns the first tag that has a given name
+  return findTag(_tag_has_name, (void*)name);
+}
+
+FunctionalBasicTag* getTagByAlias(int alias) {
+  // Returns the first tag that has a given alias
+  return findTag(_tag_has_alias, (void*)&alias);
+}
+
+FunctionalBasicTag* getTagByIdx(size_t idx) {
+  // idx is bigger than arraylen
+  if (idx < _NodeCount) return _tags_array[idx];
+  return NULL;
 }

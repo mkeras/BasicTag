@@ -27,6 +27,7 @@ extern "C" {
 #include <stdbool.h>
 
 /* Data structures definitions */
+typedef struct FunctionalBasicTag FunctionalBasicTag; // Forward declaration
 
 typedef enum {
   // Indexes of Data Types matching the Sparkplug 3 specification
@@ -107,7 +108,6 @@ typedef struct {
     bool isNull;
 } BasicValue; // Basic Value size is 32 bytes
 
-typedef struct FunctionalBasicTag FunctionalBasicTag; // Forward declaration
 typedef bool (*CompareFunction)(BasicValue* previousValue, BasicValue* newValue);  // Compare the values, return True if value should be considered changed False if not
 typedef void (*onValueChangeFunction)(FunctionalBasicTag* tag);  // Optional function that can be registered for a tag that is triggered be read, when the value has changed. Called after tag values have been updated, before returning
 
@@ -164,7 +164,6 @@ FunctionalBasicTag* createDoubleTag(const char* name, double* value_address, int
 FunctionalBasicTag* createBoolTag(const char* name, bool* value_address, int alias, bool local_writable, bool remote_writable);
 
 
-
 bool deleteTag(FunctionalBasicTag* tag);
 
 bool DefaultCompareFn(BasicValue* currentValue, BasicValue* newValue);
@@ -193,6 +192,18 @@ FunctionalBasicTag* findTag(TagFindFunction matcherFn, void* arg); // Returns po
 
 bool aliasValid(int alias); // Iterate through tags, check if alias has already been used or not
 int getNextAlias(); // Iterate through tags, get the max alias and return max_alias + 1
+
+/*
+New Functions for Version 1.2.0
+*/
+
+//typedef void (*TagArgFunction)(FunctionalBasicTag* tag, void* arg);
+//void iterArgTags(TagArgFunction tagFn, void* arg);
+
+FunctionalBasicTag* getTagByName(const char* name);
+FunctionalBasicTag* getTagByAlias(int alias);
+
+FunctionalBasicTag* getTagByIdx(size_t idx);  // used for 
 
 #ifdef __cplusplus
 }

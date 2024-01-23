@@ -27,6 +27,23 @@ The Basic Tag Library is a C library designed for managing and manipulating vari
 - iterTags Function: Iterates over tags and applies a user supplied function to each FunctionalBasicTag instance.
 # API Reference
 
+## v1.2.0
+New Additions in v1.2.0:
+- Tag getter functions:
+Functions for finding the first tag with a given name or alias.
+```c
+FunctionalBasicTag* getTagByName(const char* name);
+FunctionalBasicTag* getTagByAlias(int alias);
+FunctionalBasicTag* getTagByIdx(size_t idx);
+```
+The getTagByIndex is designed for looping through all the tags. On the backend, an array of pointers to tags is managed alongside the linked list, so that using a for loop on the tags is not o(n) operation; the function 'getTagByIdx' is o(1). The tag indexes are first created at index 0, most recent created are at the end.
+for loop example:
+```c
+for (size_t i = 0; i < getTagsCount(); i++;) {
+  FunctionalBasicTag* currentTag = getTagByIdx(i);
+}
+```
+
 ## v1.1.0
 Function for adding onChange callback to a tag:
 ```c

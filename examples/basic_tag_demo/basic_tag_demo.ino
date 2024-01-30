@@ -99,6 +99,16 @@ void loop() {
 }
 
 // print functions for demo
+void print_buffer(BufferValue* buf) {
+  Serial.print("Buffer Written Length: ");
+  Serial.println(buf->written_length);
+  for (int i = 0; i < buf->written_length; i++) {
+    Serial.print(buf->buffer[i], HEX);
+    Serial.print(" ");
+  }
+  Serial.println();
+}
+
 void print_basic_value(BasicValue* value) {
     if (value->isNull) {
         Serial.print("null (timestamp: ");
@@ -107,51 +117,53 @@ void print_basic_value(BasicValue* value) {
         return;
     }
     switch(value->datatype) {
-      case SparkplugDataType::Int8:
+      case SparkplugDataType::spInt8:
           Serial.print("Int8 Value: ");
           Serial.print(value->value.int8Value);
           break;
-      case SparkplugDataType::Int16:
+      case SparkplugDataType::spInt16:
           Serial.print("Int16 Value: ");
           Serial.print(value->value.int16Value);
           break;
-      case SparkplugDataType::Int32:
+      case SparkplugDataType::spInt32:
           Serial.print("Int32 Value: ");
           Serial.print(value->value.int32Value);
           break;
-      case SparkplugDataType::Int64:
+      case SparkplugDataType::spInt64:
           Serial.print("Int64 Value: ");
           Serial.print(value->value.int64Value);
           break;
-      case SparkplugDataType::UInt8:
+      case SparkplugDataType::spUInt8:
           Serial.print("UInt8 Value: ");
           Serial.print(value->value.uint8Value);
           break;
-      case SparkplugDataType::UInt16:
+      case SparkplugDataType::spUInt16:
           Serial.print("UInt16 Value: ");
           Serial.print(value->value.uint16Value);
           break;
-      case SparkplugDataType::UInt32:
+      case SparkplugDataType::spUInt32:
           Serial.print("UInt32 Value: ");
           Serial.print(value->value.uint32Value);
           break;
-      case SparkplugDataType::UInt64:
+      case SparkplugDataType::spUInt64:
           Serial.print("UInt64 Value: ");
           Serial.print(value->value.uint64Value);
           break;
-      case SparkplugDataType::Float:
+      case SparkplugDataType::spFloat:
           Serial.print("Float Value: ");
           Serial.print(value->value.floatValue);
           break;
-      case SparkplugDataType::Double:
+      case SparkplugDataType::spDouble:
           Serial.print("Double Value: ");
           Serial.print(value->value.doubleValue);
           break;
-      case SparkplugDataType::Boolean:
+      case SparkplugDataType::spBoolean:
           Serial.print("Boolean Value: ");
           Serial.print(value->value.boolValue ? "true" : "false");
           break;
-      case SparkplugDataType::String:
+      case SparkplugDataType::spUUID:
+      case SparkplugDataType::spText:
+      case SparkplugDataType::spString:
           Serial.print("String Value: ");
           if (value->value.stringValue == NULL) {
             Serial.print("null");
@@ -160,6 +172,14 @@ void print_basic_value(BasicValue* value) {
           Serial.print('"');
           Serial.print(value->value.stringValue);
           Serial.print('"');
+          break;
+      case SparkplugDataType::spBytes:
+          Serial.print("Bytes Value: ");
+          if (value->value.bytesValue == NULL) {
+            Serial.print("value->value.bytesValue is NULL");
+            break;
+          }
+          print_buffer(value->value.bytesValue);
           break;
       default:
         Serial.print("Unknown value!");

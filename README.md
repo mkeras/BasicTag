@@ -26,6 +26,35 @@ The Basic Tag Library is a C library designed for managing and manipulating vari
 - getTagsCount Function: Returns the count of the current number of tags.
 - iterTags Function: Iterates over tags and applies a user supplied function to each FunctionalBasicTag instance.
 # API Reference
+## v1.3.0
+New Additions in v1.3.0:
+### Alias Namespace
+Alias values are internally used as flags to indicate how a tag should be reported on
+- **0 and greater**: These are 'normal' tags that will be read and reported on normally.
+- **-999 to -1**: Tags with aliases in this range are reported on normally, but alias should never be used.
+- **-1000 and below**: These are special tags that will never influence the readAllBasicTags function valuesChanged return value, and never reported on during Report By Exception. Eg. the bdSeq tag. These tags need to be manually checked for changes.
+
+### New Functions
+Function to add ValidateWriteFunction to a tag. This is called before writing a value to a tag, when writeBasicTag is called.
+```c
+bool addValidateWriteCallback(FunctionalBasicTag* tag, ValidateWriteFunction callbackFn);
+```
+
+TimestmapFunction has been defined since 1.0.0. It is simply a function that returns a uint64_t of the epoch timestamp, in milliseconds. It must be set for readAllBasicTags to work correctly. The return flag of readAllBasicTags indicates if any of the values have changed or not.
+```c
+bool setBasicTagTimestampFunction(TimestampFunction fn);
+bool readAllBasicTags(); // Read all tags, return if true if any values have changed, otherwise false
+```
+
+The backend String and Buffer allocator/deallocator functions have been added to the API via these wrappers functions. They handle the malloc and free for buffer and string values. Return value indicates operation success or not.
+```c
+// Buffer Allocate/Deallocators
+bool allocateStringValue(BasicValue* value, size_t max_str_length);
+bool deallocateStringValue(BasicValue* value);
+
+bool allocateBufferValue(BasicValue* value, size_t buffer_size);
+bool deallocateBufferValue(BasicValue* value);
+```
 
 ## v1.2.0
 New Additions in v1.2.0:
@@ -227,7 +256,8 @@ struct {
   BasicValue previousValue;
   CompareFunction compareFunc;
   onValueChangeFunction onChange; // New in v1.1.0
-} FunctionalBasicTag;  // Size is 108 bytes + bytes / char values
+  ValidateWriteFunction validateWrite;  // New addition for v1.3.0
+} FunctionalBasicTag;  // Size is 112 bytes + bytes / char values
 ```
 
 The FunctionalBasicTagNode is the basic linked list structure. It should generally not be used manually by the user as the linked list is managed automatically by the api functions:

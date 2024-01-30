@@ -16,40 +16,42 @@ Copyright 2024 Michael Keras
 
 #include "BasicTag.h"
 
+static TimestampFunction _timestamp_function = NULL;  // New v1.3.0
+
 bool DefaultCompareFn(BasicValue* currentValue, BasicValue* newValue) {
   /* Return true if values have changed, false if not
   false: new value ignored; true: current becomes previous and new value becomes current
   The CompareFunction is where deadband and report by exception is enabled.
   */
   switch (currentValue->datatype) {
-      case Int8:
+      case spInt8:
         return currentValue->value.int8Value != newValue->value.int8Value;
-      case Int16:
+      case spInt16:
         return currentValue->value.int16Value != newValue->value.int16Value;
-      case Int32:
+      case spInt32:
         return currentValue->value.int32Value != newValue->value.int32Value;
-      case Int64:
+      case spInt64:
         return currentValue->value.int64Value != newValue->value.int64Value;
-      case UInt8:
+      case spUInt8:
         return currentValue->value.uint8Value != newValue->value.uint8Value;
-      case UInt16:
+      case spUInt16:
         return currentValue->value.uint16Value != newValue->value.uint16Value;
-      case UInt32:
+      case spUInt32:
         return currentValue->value.uint32Value != newValue->value.uint32Value;
-      case DateTime:  // Datetime is a uint64
-      case UInt64:
+      case spDateTime:  // Datetime is a uint64
+      case spUInt64:
         return currentValue->value.uint64Value != newValue->value.uint64Value;
-      case Float:
+      case spFloat:
         return currentValue->value.floatValue != newValue->value.floatValue;
-      case Double:
+      case spDouble:
         return currentValue->value.doubleValue != newValue->value.doubleValue;
-      case Boolean:
+      case spBoolean:
         return currentValue->value.boolValue != newValue->value.boolValue;
-      case Text:  // Text is a string
-      case UUID: // UUID is a string
-      case String:
+      case spText:  // Text is a string
+      case spUUID: // UUID is a string
+      case spString:
         return strcmp(currentValue->value.stringValue, newValue->value.stringValue) != 0;
-      case Bytes:
+      case spBytes:
         return true;
       default:
         // For unknown types, you might not need to do anything
@@ -185,6 +187,9 @@ static bool _deallocate_string_value(Value* value) {
 // BufferValue allocate/deallocate
 
 static bool _init_buffer_value(Value* value, size_t buffer_size) {
+  /*
+  Allocates both a ValueBuffer and it's corresponding uint8_t* buffer
+  */
   if (value->bytesValue != NULL) return false; // Don't allocate to an already allocated
 
   // Allocate the BufferValue
@@ -204,8 +209,8 @@ static bool _init_buffer_value(Value* value, size_t buffer_size) {
   value->bytesValue->buffer = (uint8_t*)malloc(buffer_size);
   // Handle allocation failure
   if (value->bytesValue->buffer == NULL) {
-    value->bytesValue->written_length = 0;
-    value->bytesValue->allocated_length = 0;
+    free(value->bytesValue);
+    value->bytesValue = NULL;
     return false;
   }
 
@@ -219,7 +224,7 @@ static bool _deallocate_buffer_value(Value* value) {
   if (value->bytesValue == NULL) return false; // There is no buffer value allocated
 
   if (value->bytesValue->buffer != NULL) free(value->bytesValue->buffer);  // If it's already NULL there's nothing to free
-  
+
   free(value->bytesValue);  // free the BufferValue instance
   value->bytesValue = NULL; // Reset pointer to NULL
 
@@ -247,6 +252,8 @@ static bool _init_functional_basic_tag(FunctionalBasicTag* tag, char* name, void
   tag->valueChanged = false;
   tag->lastRead = 0;
   tag->onChange = NULL; // Must be set by addOnChangeCallback to keep backward compatibility
+  tag->validateWrite = NULL; // Must be set by addValidateWriteCallback to keep backward compatibility
+  //tag->_extra_data = NULL;  // For adding custom data to a tag, when using it to build another library and need to store additional data
 
   // Initialize currentValue and previousValue
   tag->currentValue.timestamp = 0;
@@ -257,10 +264,10 @@ static bool _init_functional_basic_tag(FunctionalBasicTag* tag, char* name, void
   tag->previousValue.isNull = true;
 
   switch (datatype) {
-    case UUID:
+    case spUUID:
       buffer_value_max_len = 36;  // Override buffer max value to length of UUID
-    case Text:
-    case String:
+    case spText:
+    case spString:
       // Allocate the strings for values
       {
       // WARNING: ASSUMES THE VALUES HAVE NOT YET BEEN ALLOCATED/INITIALIZED
@@ -272,7 +279,7 @@ static bool _init_functional_basic_tag(FunctionalBasicTag* tag, char* name, void
       _init_string_value(&(tag->previousValue.value), buffer_value_max_len);
       }
       break;
-    case Bytes:
+    case spBytes:
       // WARNING: ASSUMES THE VALUES HAVE NOT YET BEEN ALLOCATED/INITIALIZED
       // CALLING __init_functional_basic_tag twice on same tag will cause memory leak
       tag->currentValue.value.bytesValue = NULL;
@@ -312,55 +319,55 @@ FunctionalBasicTag* createTag(const char* name, void* value_address, int alias, 
 
 /*Create String & Buffer Types*/
 FunctionalBasicTag* createStringTag(const char* name, char* value_address, int alias, bool local_writable, bool remote_writable, size_t string_max_len) {
-  return createTag(name, (void*)value_address, alias, String, local_writable, remote_writable, string_max_len);
+  return createTag(name, (void*)value_address, alias, spString, local_writable, remote_writable, string_max_len);
 }
 FunctionalBasicTag* createTextTag(const char* name, char* value_address, int alias, bool local_writable, bool remote_writable, size_t string_max_len) {
-  return createTag(name, (void*)value_address, alias, Text, local_writable, remote_writable, string_max_len);
+  return createTag(name, (void*)value_address, alias, spText, local_writable, remote_writable, string_max_len);
 }
 FunctionalBasicTag* createUUIDTag(const char* name, char* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, UUID, local_writable, remote_writable, 36);
+  return createTag(name, (void*)value_address, alias, spUUID, local_writable, remote_writable, 36);
 }
 FunctionalBasicTag* createBytesTag(const char* name, BufferValue* value_address, int alias, bool local_writable, bool remote_writable, size_t buffer_value_max_len) {
-  return createTag(name, (void*)value_address, alias, Bytes, local_writable, remote_writable, buffer_value_max_len);
+  return createTag(name, (void*)value_address, alias, spBytes, local_writable, remote_writable, buffer_value_max_len);
 }
 /*Create Int Types*/
 FunctionalBasicTag* createInt8Tag(const char* name, int8_t* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, Int8, local_writable, remote_writable, 0);
+  return createTag(name, (void*)value_address, alias, spInt8, local_writable, remote_writable, 0);
 }
 FunctionalBasicTag* createInt16Tag(const char* name, int16_t* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, Int16, local_writable, remote_writable, 0);
+  return createTag(name, (void*)value_address, alias, spInt16, local_writable, remote_writable, 0);
 }
 FunctionalBasicTag* createInt32Tag(const char* name, int32_t* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, Int32, local_writable, remote_writable, 0);
+  return createTag(name, (void*)value_address, alias, spInt32, local_writable, remote_writable, 0);
 }
 FunctionalBasicTag* createInt64Tag(const char* name, int64_t* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, Int64, local_writable, remote_writable, 0);
+  return createTag(name, (void*)value_address, alias, spInt64, local_writable, remote_writable, 0);
 }
 FunctionalBasicTag* createUInt8Tag(const char* name, uint8_t* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, UInt8, local_writable, remote_writable, 0);
+  return createTag(name, (void*)value_address, alias, spUInt8, local_writable, remote_writable, 0);
 }
 FunctionalBasicTag* createUInt16Tag(const char* name, uint16_t* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, UInt16, local_writable, remote_writable, 0);
+  return createTag(name, (void*)value_address, alias, spUInt16, local_writable, remote_writable, 0);
 }
 FunctionalBasicTag* createUInt32Tag(const char* name, uint32_t* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, UInt32, local_writable, remote_writable, 0);
+  return createTag(name, (void*)value_address, alias, spUInt32, local_writable, remote_writable, 0);
 }
 FunctionalBasicTag* createUInt64Tag(const char* name, uint64_t* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, UInt64, local_writable, remote_writable, 0);
+  return createTag(name, (void*)value_address, alias, spUInt64, local_writable, remote_writable, 0);
 }
 FunctionalBasicTag* createDateTimeTag(const char* name, uint64_t* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, DateTime, local_writable, remote_writable, 0);
+  return createTag(name, (void*)value_address, alias, spDateTime, local_writable, remote_writable, 0);
 }
 /*Create Float Types*/
 FunctionalBasicTag* createFloatTag(const char* name, float* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, Float, local_writable, remote_writable, 0);
+  return createTag(name, (void*)value_address, alias, spFloat, local_writable, remote_writable, 0);
 }
 FunctionalBasicTag* createDoubleTag(const char* name, double* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, Double, local_writable, remote_writable, 0);
+  return createTag(name, (void*)value_address, alias, spDouble, local_writable, remote_writable, 0);
 }
 /*Create Bool Types*/
 FunctionalBasicTag* createBoolTag(const char* name, bool* value_address, int alias, bool local_writable, bool remote_writable) {
-  return createTag(name, (void*)value_address, alias, Boolean, local_writable, remote_writable, 0);
+  return createTag(name, (void*)value_address, alias, spBoolean, local_writable, remote_writable, 0);
 }
 
 
@@ -369,14 +376,14 @@ static bool _deallocate_functional_basic_tag(FunctionalBasicTag* tag) {
     Deallocate any malloc'd variables before tag is deallocated
     */
     switch (tag->datatype) {
-        case Text:
-        case UUID:
-        case String:
+        case spText:
+        case spUUID:
+        case spString:
             // Deallocate char buffers
             _deallocate_string_value(&(tag->currentValue.value));
             _deallocate_string_value(&(tag->previousValue.value));
             break;
-        case Bytes:
+        case spBytes:
             // Deallocate bytes buffer
             _deallocate_buffer_value(&(tag->currentValue.value));
             _deallocate_buffer_value(&(tag->previousValue.value));
@@ -462,27 +469,27 @@ static void _copyBasicValue(BasicValue* reference, BasicValue* target, size_t bu
 
     // Depending on the SparkplugDataType, handle the value copying
     switch (reference->datatype) {
-      case Int8:
-      case Int16:
-      case Int32:
-      case Int64:
-      case UInt8:
-      case UInt16:
-      case UInt32:
-      case UInt64:
-      case Float:
-      case Double:
-      case Boolean:
-      case DateTime:
+      case spInt8:
+      case spInt16:
+      case spInt32:
+      case spInt64:
+      case spUInt8:
+      case spUInt16:
+      case spUInt32:
+      case spUInt64:
+      case spFloat:
+      case spDouble:
+      case spBoolean:
+      case spDateTime:
         // For these types, direct assignment is fine
         target->value = reference->value;
         break;
-      case Text:  // Text is a string
-      case UUID: // UUID is a string
-      case String:
+      case spText:  // Text is a string
+      case spUUID: // UUID is a string
+      case spString:
         _copy_string_value(reference->value.stringValue, target->value.stringValue, buffer_value_max_len);
         break;
-      case Bytes:
+      case spBytes:
         _copy_buffer_value(reference->value.bytesValue, target->value.bytesValue);
         break;
       default:
@@ -509,43 +516,43 @@ bool readBasicTag(FunctionalBasicTag* tag, uint64_t timestamp) {
   }
 
   switch (tag->datatype) {
-    case Int8: // Handle Int8 type
+    case spInt8: // Handle Int8 type
         newValue.value.int8Value = *((int8_t*)(tag->value_address));
         break;
-    case Int16:  // Handle Int16 type
+    case spInt16:  // Handle Int16 type
         newValue.value.int16Value = *((int16_t*)(tag->value_address));
         break;
-    case Int32: // Handle Int32 type
+    case spInt32: // Handle Int32 type
         newValue.value.int32Value = *((int32_t*)(tag->value_address));
         break;
-    case Int64: // Handle Int64 type
+    case spInt64: // Handle Int64 type
         newValue.value.int64Value = *((int64_t*)(tag->value_address));
         break;
-    case UInt8: // Handle UInt8 type
+    case spUInt8: // Handle UInt8 type
         newValue.value.uint8Value = *((uint8_t*)(tag->value_address));
         break;
-    case UInt16: // Handle UInt16 type
+    case spUInt16: // Handle UInt16 type
         newValue.value.uint16Value = *((uint16_t*)(tag->value_address));
         break;
-    case UInt32: // Handle UInt32 type
+    case spUInt32: // Handle UInt32 type
         newValue.value.uint32Value = *((uint32_t*)(tag->value_address));
         break;
-    case DateTime: // DateTime is epoch milliseconds as uint64
-    case UInt64: // Handle UInt64 type
+    case spDateTime: // DateTime is epoch milliseconds as uint64
+    case spUInt64: // Handle UInt64 type
         newValue.value.uint64Value = *((uint64_t*)(tag->value_address));
         break;
-    case Float: // Handle Float type
+    case spFloat: // Handle Float type
         newValue.value.floatValue = *((float*)(tag->value_address));
         break;
-    case Double: // Handle Double type
+    case spDouble: // Handle Double type
         newValue.value.doubleValue = *((double*)(tag->value_address));
         break;
-    case Boolean: // Handle Boolean type
+    case spBoolean: // Handle Boolean type
         newValue.value.boolValue = *((bool*)(tag->value_address));
         break;
-    case Text:  // Test is a string
-    case UUID: // UUID is a string
-    case String: // Handle String type, cast the tag value adress directly to newValue.value.stringValue
+    case spText:  // Test is a string
+    case spUUID: // UUID is a string
+    case spString: // Handle String type, cast the tag value adress directly to newValue.value.stringValue
         newValue.value.stringValue = (char*)(tag->value_address);
         // check for 0 length char or empty string
         if (tag->buffer_value_max_len < 1 || strlen(newValue.value.stringValue) == 0) {
@@ -553,7 +560,7 @@ bool readBasicTag(FunctionalBasicTag* tag, uint64_t timestamp) {
           newValue.isNull = true;
         }
         break;
-    case Bytes: // Buffer Type, value_address must be a pointer to a BufferValue
+    case spBytes: // Buffer Type, value_address must be a pointer to a BufferValue
       newValue.value.bytesValue = (BufferValue*)(tag->value_address);
     default:
         newValue.isNull = true;
@@ -587,45 +594,47 @@ bool writeBasicTag(FunctionalBasicTag* tag, BasicValue* newValue) {
   User must correctly set the newValue to match the datatype of the tag, otherwise errors can occur */
   if (tag->value_address == NULL) return false;
   if (!tag->local_writable && !tag->remote_writable) return false;
+  // New in v1.3.0, validateWrite function
+  if (tag->validateWrite != NULL && !(tag->validateWrite(newValue))) return false;
 
   switch (tag->datatype) {
-    case Int8:
+    case spInt8:
       *(int8_t*)(tag->value_address) = newValue->value.int8Value;
       break;
-    case Int16:
+    case spInt16:
         *(int16_t*)(tag->value_address) = newValue->value.int16Value;
         break;
-    case Int32:
+    case spInt32:
         *(int32_t*)(tag->value_address) = newValue->value.int32Value;
         break;
-    case Int64:
+    case spInt64:
         *(int64_t*)(tag->value_address) = newValue->value.int64Value;
         break;
-    case UInt8:
+    case spUInt8:
         *(uint8_t*)(tag->value_address) = newValue->value.uint8Value;
         break;
-    case UInt16:
+    case spUInt16:
         *(uint16_t*)(tag->value_address) = newValue->value.uint16Value;
         break;
-    case UInt32:
+    case spUInt32:
         *(uint32_t*)(tag->value_address) = newValue->value.uint32Value;
         break;
-    case Float:
+    case spFloat:
       *(float*)(tag->value_address) = newValue->value.floatValue;
       break;
-    case Double:
+    case spDouble:
       *(double*)(tag->value_address) = newValue->value.doubleValue;
       break;
-    case Boolean:
+    case spBoolean:
       *(bool*)(tag->value_address) = newValue->value.boolValue;
       break;
-    case DateTime:
-    case UInt64:
+    case spDateTime:
+    case spUInt64:
       *(uint64_t*)(tag->value_address) = newValue->value.uint64Value;
       break;
-    case Text:  // Text is a string
-    case UUID: // UUID is a string
-    case String:
+    case spText:  // Text is a string
+    case spUUID: // UUID is a string
+    case spString:
       // NULL checks
       if (newValue->isNull || newValue->value.stringValue == NULL || newValue->value.stringValue[0] == '\0') {
         // set the value at tag->value_address to null according to the max length
@@ -634,7 +643,7 @@ bool writeBasicTag(FunctionalBasicTag* tag, BasicValue* newValue) {
       }
       _copy_string_value(newValue->value.stringValue, (char*)(tag->value_address), tag->buffer_value_max_len);
       break;
-    case Bytes:
+    case spBytes:
       // NULL checks
       if (newValue->isNull || newValue->value.bytesValue == NULL || newValue->value.bytesValue->buffer == NULL || newValue->value.bytesValue->allocated_length < 1 || newValue->value.bytesValue->written_length < 1) {
         // set the value at tag->value_address to null according to the max length
@@ -719,4 +728,58 @@ FunctionalBasicTag* getTagByIdx(size_t idx) {
   // idx is bigger than arraylen
   if (idx < _NodeCount) return _tags_array[idx];
   return NULL;
+}
+
+
+/*
+New Functions for Version 1.3.0
+*/
+
+bool addValidateWriteCallback(FunctionalBasicTag* tag, ValidateWriteFunction callbackFn) {
+  if (callbackFn == NULL || tag == NULL) return false;
+  tag->validateWrite = callbackFn;
+  return true;
+}
+
+static uint64_t _timestamp() {
+  if (_timestamp_function == NULL) return 0;
+  return _timestamp_function();
+}
+
+bool setBasicTagTimestampFunction(TimestampFunction fn) {
+  if (fn == NULL) return false;
+  _timestamp_function = fn;
+}
+
+bool readAllBasicTags() {
+  bool valuesChanged = false;
+  for (size_t i = 0; i < getTagsCount(); i++) {
+    FunctionalBasicTag* currentTag = getTagByIdx(i);
+    if (readBasicTag(currentTag, _timestamp())) {
+      // Ignore tags below -1000
+      if (currentTag->alias > -1000) valuesChanged = true;
+    }
+  }
+  return valuesChanged;
+}
+
+
+// Buffer Allocate/Deallocators
+
+bool allocateStringValue(BasicValue* value, size_t max_str_length) {
+  if (value == NULL) return false;
+  _init_string_value(&(value->value), max_str_length);
+}
+bool deallocateStringValue(BasicValue* value) {
+  if (value == NULL) return false;
+  return _deallocate_string_value(&(value->value));
+}
+
+bool allocateBufferValue(BasicValue* value, size_t buffer_size) {
+  if (value == NULL) return false;
+  return _init_buffer_value(&(value->value), buffer_size);
+}
+bool deallocateBufferValue(BasicValue* value) {
+  if (value == NULL) return false;
+  return _deallocate_buffer_value(&(value->value));
 }

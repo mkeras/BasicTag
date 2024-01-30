@@ -27,52 +27,55 @@ extern "C" {
 #include <stdbool.h>
 
 /* Data structures definitions */
+
+typedef uint64_t (*TimestampFunction)();  // Function that returns a uint64_t millisecond timestamp
+
 typedef struct FunctionalBasicTag FunctionalBasicTag; // Forward declaration
 
 typedef enum {
   // Indexes of Data Types matching the Sparkplug 3 specification
   // Unimplemented Datatypes are commented out
   // Unknown placeholder for future expansion.
-  //Unknown = 0,
+  //spUnknown = 0,
   // Basic Types
-  Int8 = 1,
-  Int16 = 2,
-  Int32 = 3,
-  Int64 = 4,
-  UInt8 = 5,
-  UInt16 = 6,
-  UInt32 = 7,
-  UInt64 = 8,
-  Float = 9,
-  Double = 10,
-  Boolean = 11,
-  String = 12,
-  DateTime = 13,  // uint64, epoch milliseconds
-  Text = 14,
+  spInt8 = 1,
+  spInt16 = 2,
+  spInt32 = 3,
+  spInt64 = 4,
+  spUInt8 = 5,
+  spUInt16 = 6,
+  spUInt32 = 7,
+  spUInt64 = 8,
+  spFloat = 9,
+  spDouble = 10,
+  spBoolean = 11,
+  spString = 12,
+  spDateTime = 13,  // uint64, epoch milliseconds
+  spText = 14,
   // Additional Metric Types
-  UUID = 15,   // a string of 36 characters
-  /*DataSet = 16,*/
-  Bytes = 17,
-  /*File = 18,
-  Template = 19,
+  spUUID = 15,   // a string of 36 characters
+  /*spDataSet = 16,*/
+  spBytes = 17,
+  /*spFile = 18,
+  spTemplate = 19,
   // Additional PropertyValue Types
-  PropertySet = 20,
-  PropertySetList = 21,
+  spPropertySet = 20,
+  spPropertySetList = 21,
   // Array Types
-  Int8Array = 22,
-  Int16Array = 23,
-  Int32Array = 24,
-  Int64Array = 25,
-  UInt8Array = 26,
-  UInt16Array = 27,
-  UInt32Array = 28,
-  UInt64Array = 29,
-  FloatArray = 30,
-  DoubleArray = 31,
-  BooleanArray = 32,
-  StringArray = 33,
-  DateTimeArray = 34*/
-} SparkplugDataType;
+  spInt8Array = 22,
+  spInt16Array = 23,
+  spInt32Array = 24,
+  spInt64Array = 25,
+  spUInt8Array = 26,
+  spUInt16Array = 27,
+  spUInt32Array = 28,
+  spUInt64Array = 29,
+  spFloatArray = 30,
+  spDoubleArray = 31,
+  spBooleanArray = 32,
+  spStringArray = 33,
+  spDateTimeArray = 34*/
+} SparkplugDataType; // v1.3.0 added sp prefix to types to avoid any name overlap (eg. arduino String class)
 
 
 typedef struct {
@@ -110,6 +113,7 @@ typedef struct {
 
 typedef bool (*CompareFunction)(BasicValue* previousValue, BasicValue* newValue);  // Compare the values, return True if value should be considered changed False if not
 typedef void (*onValueChangeFunction)(FunctionalBasicTag* tag);  // Optional function that can be registered for a tag that is triggered be read, when the value has changed. Called after tag values have been updated, before returning
+typedef bool (*ValidateWriteFunction)(BasicValue* newValue);
 
 struct FunctionalBasicTag {
   const char* name;
@@ -125,7 +129,9 @@ struct FunctionalBasicTag {
   BasicValue previousValue;
   CompareFunction compareFunc;
   onValueChangeFunction onChange;
-};  // Size is 108? bytes + bytes / char values
+  ValidateWriteFunction validateWrite;  // New addition for v1.3.0
+  /*void* _extra_data; // New addition for v1.3.0 Unsure if this will be added or not */
+};  // Size is 112 bytes + bytes / char values
 
 
 typedef struct {
@@ -176,8 +182,6 @@ unsigned int getTagsCount();
 
 typedef void (*TagFunction)(FunctionalBasicTag* tag);  // Function that is called on each tag by the iterTags function
 
-typedef uint64_t (*TimestampFunction)();  // Function that returns a uint64_t millisecond timestamp
-
 void iterTags(TagFunction tagFn);
 
 /*
@@ -197,13 +201,28 @@ int getNextAlias(); // Iterate through tags, get the max alias and return max_al
 New Functions for Version 1.2.0
 */
 
-//typedef void (*TagArgFunction)(FunctionalBasicTag* tag, void* arg);
-//void iterArgTags(TagArgFunction tagFn, void* arg);
-
 FunctionalBasicTag* getTagByName(const char* name);
 FunctionalBasicTag* getTagByAlias(int alias);
 
-FunctionalBasicTag* getTagByIdx(size_t idx);  // used for 
+FunctionalBasicTag* getTagByIdx(size_t idx);
+
+/*
+New Functions for Version 1.3.0
+*/
+
+bool addValidateWriteCallback(FunctionalBasicTag* tag, ValidateWriteFunction callbackFn);
+
+
+bool setBasicTagTimestampFunction(TimestampFunction fn);
+
+bool readAllBasicTags(); // Read all tags, return if true if any values have changed, otherwise false
+
+// Buffer Allocate/Deallocators
+bool allocateStringValue(BasicValue* value, size_t max_str_length);
+bool deallocateStringValue(BasicValue* value);
+
+bool allocateBufferValue(BasicValue* value, size_t buffer_size);
+bool deallocateBufferValue(BasicValue* value);
 
 #ifdef __cplusplus
 }

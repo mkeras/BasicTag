@@ -22,6 +22,8 @@ bool DefaultCompareFn(BasicValue* currentValue, BasicValue* newValue) {
   /* Return true if values have changed, false if not
   false: new value ignored; true: current becomes previous and new value becomes current
   The CompareFunction is where deadband and report by exception is enabled.
+  Warning: This function assumes that the supplied values are properly set and are not Null.
+           These checks should be performed before calling this function.
   */
   switch (currentValue->datatype) {
       case spInt8:
@@ -52,7 +54,13 @@ bool DefaultCompareFn(BasicValue* currentValue, BasicValue* newValue) {
       case spString:
         return strcmp(currentValue->value.stringValue, newValue->value.stringValue) != 0;
       case spBytes:
-        return true;
+        // New to v1.3.2
+        // if they aren't the same length, it has changed
+        if (currentValue->value.bytesValue->written_length != newValue->value.bytesValue->written_length) return true;
+        for (size_t i = 0; i < currentValue->value.bytesValue->written_length; i++) {
+          if (currentValue->value.bytesValue->buffer[i] != newValue->value.bytesValue->buffer[i]) return true;
+        }
+        return false;
       default:
         // For unknown types, you might not need to do anything
         return true;
@@ -448,7 +456,6 @@ static bool _copy_buffer_value(BufferValue* reference_buf, BufferValue* target_b
   // Check buffer length, safety check to makesure target buffer is never overflowed
   if (length > target_buf->allocated_length) length = target_buf->allocated_length;
 
-  // TODO Evaluate neccesity of performing strcmp before copying, to reduce copy operations
 
   // Copy string from reference to target
   memcpy(target_buf, reference_buf, length);
@@ -561,7 +568,8 @@ bool readBasicTag(FunctionalBasicTag* tag, uint64_t timestamp) {
         }
         break;
     case spBytes: // Buffer Type, value_address must be a pointer to a BufferValue
-      newValue.value.bytesValue = (BufferValue*)(tag->value_address);
+        newValue.value.bytesValue = (BufferValue*)(tag->value_address);
+        break;
     default:
         newValue.isNull = true;
         break; // For unknown types, you might not need to do anything
@@ -756,7 +764,7 @@ bool readAllBasicTags() {
   for (size_t i = 0; i < getTagsCount(); i++) {
     FunctionalBasicTag* currentTag = getTagByIdx(i);
     if (readBasicTag(currentTag, _timestamp())) {
-      // Ignore tags below -1000
+      // Ignore tag changes for aliases below -1000
       if (currentTag->alias > -1000) valuesChanged = true;
     }
   }

@@ -757,6 +757,7 @@ static uint64_t _timestamp() {
 bool setBasicTagTimestampFunction(TimestampFunction fn) {
   if (fn == NULL) return false;
   _timestamp_function = fn;
+  return true;
 }
 
 bool readAllBasicTags() {
@@ -776,7 +777,7 @@ bool readAllBasicTags() {
 
 bool allocateStringValue(BasicValue* value, size_t max_str_length) {
   if (value == NULL) return false;
-  _init_string_value(&(value->value), max_str_length);
+  return _init_string_value(&(value->value), max_str_length);
 }
 bool deallocateStringValue(BasicValue* value) {
   if (value == NULL) return false;
